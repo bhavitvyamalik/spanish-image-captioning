@@ -1,1 +1,1 @@
-# marathi-image-captioning
+# spanish-image-captioning
