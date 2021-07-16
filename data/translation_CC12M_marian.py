@@ -28,7 +28,6 @@ args = parser.parse_args()
 
 DATASET_PATH = args.tsv_path
 VAL_SPLIT = args.val_split
-LANG_LIST = args.lang_list
 if args.save_location_train != None:
     SAVE_TRAIN = args.save_location_train
     SAVE_VAL = args.save_location_val
@@ -79,7 +78,7 @@ def arrange_data(image_files, captions, image_urls):  # iterates through all the
         return lis_
 
     except Exception as e:
-        print(caption, image_url, " skipped!")
+        print(captions, image_url, " skipped!")
         return
 
 
