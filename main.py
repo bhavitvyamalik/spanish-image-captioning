@@ -1,5 +1,3 @@
-#TODO fix imports
-
 from functools import partial
 import gc
 import logging
@@ -34,7 +32,7 @@ from flax import jax_utils, traverse_util
 from flax.jax_utils import unreplicate
 from flax.training import train_state
 from flax.training.common_utils import get_metrics, shard, shard_prng_key, get_metrics, onehot
-from models.flax_clip_vision_mbart.modeling_clip_vision_mbart import FlaxCLIPVisionMBartForConditionalGeneration
+from models.flax_clip_vision_marian.modeling_clip_vision_marian import FlaxCLIPVisionMarianMT
 from transformers import MarianTokenizer, HfArgumentParser, TrainingArguments, is_tensorboard_available, set_seed
 
 from PIL import ImageFile
@@ -67,14 +65,14 @@ class ModelArguments:
     """
 
     vision_model_name_or_path: str = field(
-        default = 'openai/clip-vit-base-patch32', # TODO change model
+        default = 'openai/clip-vit-base-patch32',
         metadata={
             "help": "The image model checkpoint for weights initialization."
             "Don't set if you want to train a model from scratch."
         },
     )
     text_model_name_or_path: str = field(
-        default = 'facebook/mbart-large-50',  # TODO change model
+        default = 'Helsinki-NLP/opus-mt-en-es',
         metadata={
             "help": "The text model checkpoint for weights initialization."
             "Don't set if you want to train a model from scratch."
@@ -85,7 +83,7 @@ class ModelArguments:
     #     metadata={"help": "whether to load the text using PyTorch checkpoints."},
     # )
 
-    mbart_tokenizer_name: Optional[str] = field(
+    marian_tokenizer_name: Optional[str] = field(
         default="Helsinki-NLP/opus-mt-en-es", metadata={"help": "Pretrained tokenizer name or path if not the same as model_name"}
     )
     cache_dir: Optional[str] = field(
@@ -114,11 +112,11 @@ class DataTrainingArguments:
         metadata={"help": "The data directory containing input files."}
     )
     train_file: Optional[str] = field(
-        default=None,  # TODO
+        default=None,
         metadata={"help": "The input training data file (a jsonlines file)."}
     )
     validation_file: Optional[str] = field(
-        default=None,  # TODO
+        default=None,
         metadata={"help": "An optional input evaluation data file (a jsonlines file)."},
     )
     max_seq_length: Optional[int] = field(
@@ -217,11 +215,7 @@ class ImageTextDataset(VisionDataset):
 
     def _load_image(self, idx: int):
         path = self.image_paths[idx]
-        try:
-            return read_image(os.path.join(self.root,path), mode=ImageReadMode.RGB)
-        except:
-            path = self.image_paths[0]
-            return read_image(os.path.join(self.root,path), mode=ImageReadMode.RGB)
+        return read_image(os.path.join(self.root,path), mode=ImageReadMode.RGB)
 
     def _load_target(self, idx):
         return self.captions[idx]
@@ -395,18 +389,17 @@ def main():
     # Set the verbosity to info of the Transformers logger (on main process only):
     logger.info(f"Training/evaluation parameters {training_args}")
 
-    tokenizer = MarianTokenizer.from_pretrained(model_args.mbart_tokenizer_name)
+    tokenizer = MarianTokenizer.from_pretrained(model_args.marian_tokenizer_name)
 
-    if training_args.resume_from_checkpoint is None:  # TODO change model name
-        model = FlaxCLIPVisionMBartForConditionalGeneration.from_clip_vision_mbart_pretrained(
+    if training_args.resume_from_checkpoint is None:
+        model = FlaxCLIPVisionMarianMT.from_clip_vision_marian_pretrained(
             model_args.vision_model_name_or_path,
             model_args.text_model_name_or_path,
             seed=training_args.seed,
             dtype=getattr(jnp, model_args.dtype),
-            mbart_from_pt=True
         )
     else:
-        model = FlaxCLIPVisionMBartForConditionalGeneration.from_pretrained(training_args.resume_from_checkpoint)  #TODO change model
+        model = FlaxCLIPVisionMarianMT.from_clip_vision_marian_pretrained(training_args.resume_from_checkpoint)
     config = model.config
     # config = vision_model_name_or_path.config
     # set seed for torch dataloaders
@@ -450,19 +443,17 @@ def main():
     # Use collate function to tokenizer the text and convert the processed images to numpy
     def collate_fn(examples):
         pixel_values = torch.stack([example[0] for example in examples]).permute(0, 2, 3, 1).numpy()
-        captions = [example[1] for example in examples]
+        captions = [str(example[1]) for example in examples]
 
-        # tokenizer = map_tokenizer_lang[lang_id[0]]
         with tokenizer.as_target_tokenizer():
             tokens = tokenizer(captions, max_length=data_args.max_seq_length, padding="max_length", return_tensors="np", truncation=True)
 
-        decoder_input_ids = shift_tokens_right(tokens["input_ids"], config.mbart_config.pad_token_id)   #TODO change pad_token_id
-
+        decoder_input_ids = shift_tokens_right(tokens["input_ids"], config.marian_config.pad_token_id)
         batch = {
             "pixel_values": pixel_values,
             "input_ids": tokens["input_ids"],
             "attention_mask": tokens["attention_mask"],
-            "decoder_input_ids": decoder_input_ids,  #TODO change decoder_input_ids
+            "decoder_input_ids": decoder_input_ids,
         }
         return batch
 
@@ -508,8 +499,11 @@ def main():
 
     def compute_metrics(preds, labels):  # make sure it's working correctly
 
+        # print(preds)
+
         decoded_preds = tokenizer.batch_decode(preds, skip_special_tokens=True, max_length=64)
         decoded_labels = tokenizer.batch_decode(labels, skip_special_tokens=True, max_length=64)
+        # print(decoded_preds)
 
         # Some simple post-processing
         decoded_preds, decoded_labels = postprocess_text(decoded_preds, decoded_labels)
@@ -641,7 +635,7 @@ def main():
         return metrics
 
     num_beams = 4  # model has beam size 5, should we keep 4 or 5 here?
-    gen_kwargs = {"max_length": data_args.max_seq_length, "num_beams": num_beams, "decoder_start_token_id": tokenizer.lang_code_to_id[curr_lang}  #TODO: add token id
+    gen_kwargs = {"max_length": data_args.max_seq_length, "num_beams": num_beams, "early_stopping": True}
 
     def generate_step(params, batch):
         model.params = params
@@ -675,7 +669,6 @@ def main():
     epochs = tqdm(range(epoch_start_point, num_epochs), desc=f"Epoch:  ({epoch_start_point+1}/{num_epochs})", position=0)
     for epoch in epochs:
         # ======================== Training ================================
-        epochs.update(1)
         train_start = time.time()
         train_metrics = []
 
@@ -708,12 +701,14 @@ def main():
                 epochs.write(f"Log at Step: {cur_step} (Loss: {train_metric['loss']}, Learning Rate: {train_metric['learning_rate']})")
 
                 train_metrics = [] # TODO: Check why is this being done? WHat is this needed for?
+                gc.collect()
 
             if cur_step % training_args.eval_steps == 0 and cur_step > 0:
 
                 eval_metrics = []
                 eval_preds = []
                 eval_labels = []
+                bleu_metrics_total = {}
 
                 # TODO: Check if this is correct
                 eval_steps = len(eval_dataset) // eval_batch_size  # eval_dataset is a list containing loaders for diff langs
@@ -729,8 +724,6 @@ def main():
                     metrics = p_eval_step(state.params, batch)
                     eval_metrics.append(metrics)
 
-                        # curr_lang = list(map_lang_num.keys())[lang[0]] # TODO: Check if we can directly replace with lists?
-                        # generation
                     if data_args.predict_with_generate:
                         generated_ids = p_generate_step(state.params, batch)
                         # print("generated_ids:", generated_ids)
@@ -742,7 +735,8 @@ def main():
 
                     # compute BLEU metrics
                     if data_args.predict_with_generate:
-                        bleu_metrics = compute_metrics(eval_preds, eval_labels, curr_lang)  # eval_langs would contain one lang only
+                        bleu_metrics = compute_metrics(eval_preds, eval_labels)  # eval_langs would contain one lang only
+                        bleu_metrics_total["es"] = bleu_metrics
                         gc.collect()
 
                     gc.collect()
@@ -792,6 +786,7 @@ def main():
 
         train_step_progress_bar.close()
         # gc.collect()
+        epochs.update(1)
 
         if break_all:
             break

@@ -49,7 +49,7 @@ class FlaxCLIPVisionMarianModule(nn.Module):
         self.decoder = FlaxMarianDecoder(
             self.config.marian_config, dtype=self.dtype, embed_tokens=self.shared
         )
-        
+
         self.visual_projection = nn.Dense(
             self.config.marian_config.hidden_size,
             dtype=self.dtype,
@@ -140,7 +140,7 @@ class FlaxCLIPVisionMarianMTModule(nn.Module):
 
     def _get_decoder_module(self):
         return self.model.decoder
-    
+
     def _get_visual_projection_module(self):
         return self.model.visual_projection
 

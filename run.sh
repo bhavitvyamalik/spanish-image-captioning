@@ -15,19 +15,18 @@ echo "Token found $token"
 python3 main.py \
     --output_dir $repo \
     --seed 42 \
-    --logging_steps 5000 \
-    --eval_steps 10000 \
-    --save_steps 15000 \
+    --logging_steps 300 \
+    --eval_steps 600 \
+    --save_steps 1200 \
     --data_dir /home/user/data/CC12M/images \
-    --train_file /home/bhavitvya_malik/final_data/train_file_batch.tsv \
-    --validation_file /home/bhavitvya_malik/final_data/val_file_batch.tsv \
-    --save_total_limit 10 \
+    --train_file /home/chhablani_gunjan/spanish-image-captioning/data/train_file_es.tsv \
+    --validation_file /home/chhablani_gunjan/spanish-image-captioning/data/val_file_es.tsv \
+    --save_total_limit 6 \
     --push_to_hub \
-    --num_train_epochs 3 \
+    --num_train_epochs 5 \
     --push_to_hub_organization flax-community \
     --push_to_hub_token $token \
-    --max_eval_samples 25000 \
-    --per_device_train_batch_size 32 \
+    --per_device_train_batch_size 128 \
     --per_device_eval_batch_size 128 \
-    --preprocessing_num_workers 8 \
-    --warmup_steps 10000 \
+    --preprocessing_num_workers 16 \
+    --warmup_steps 500 \
