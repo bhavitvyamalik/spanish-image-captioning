@@ -39,7 +39,7 @@ num_devices = 8
 
 model = FlaxMarianMTModel.from_pretrained("Helsinki-NLP/opus-mt-en-es", from_pt=True)
 
-tokenizer = MarianTokenizer.from_pretrained("Helsinki-NLP/opus-mt-en-es")
+tokenizer = MarianTokenizer.from_pretrained("Helsinki-NLP/opus-mt-en-es", source_lang="en")
 
 def generate(params, batch):
       output_ids = model.generate(batch["input_ids"], attention_mask=batch["attention_mask"], params=params, num_beams=4, max_length=64, early_stopping=True).sequences
@@ -49,13 +49,13 @@ p_generate = jax.pmap(generate, "batch")
 
 p_params = replicate(model.params)
 
-rng = jax.random.PRNGKey(0)
-rngs = jax.random.split(rng, num_devices)
+# rng = jax.random.PRNGKey(0)
+# rngs = jax.random.split(rng, num_devices)
 
 def run_generate(input_str):
   inputs = tokenizer(input_str, return_tensors="jax", padding="max_length", truncation=True, max_length=64)
   p_inputs = shard(inputs.data)
-  output_ids = p_generate(p_params, p_inputs, rngs)
+  output_ids = p_generate(p_params, p_inputs)
   output_strings = tokenizer.batch_decode(output_ids.reshape(-1, 64), skip_special_tokens=True)
   return output_strings
 
@@ -69,7 +69,7 @@ def arrange_data(image_files, captions, image_urls):  # iterates through all the
     try:
         lis_ = []
 
-        output = run_generate(captions, p_generate)
+        output = run_generate(captions)
 
         for image_file, caption, image_url in zip(image_files, output, image_urls):  # add other captions
                 lis_.append({"image_file":image_file, "caption":caption, "url":image_url})
@@ -78,7 +78,7 @@ def arrange_data(image_files, captions, image_urls):  # iterates through all the
         return lis_
 
     except Exception as e:
-        print(captions, image_url, " skipped!")
+        print(e)
         return
 
 
