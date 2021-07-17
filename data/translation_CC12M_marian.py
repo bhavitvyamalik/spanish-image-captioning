@@ -32,7 +32,7 @@ if args.save_location_train != None:
     SAVE_TRAIN = args.save_location_train
     SAVE_VAL = args.save_location_val
 
-BATCH_SIZE = 1024
+BATCH_SIZE = 2048
 MAX_SIZE = args.max_size
 IS_TRAIN = args.is_train
 num_devices = 8
@@ -56,7 +56,7 @@ def run_generate(input_str):
   inputs = tokenizer(input_str, return_tensors="jax", padding="max_length", truncation=True, max_length=64)
   p_inputs = shard(inputs.data)
   output_ids = p_generate(p_params, p_inputs)
-  output_strings = tokenizer.batch_decode(output_ids.reshape(-1, 64), skip_special_tokens=True)
+  output_strings = tokenizer.batch_decode(output_ids.reshape(-1, 64), skip_special_tokens=True, max_length=64)
   return output_strings
 
 
