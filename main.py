@@ -583,7 +583,7 @@ def main():
             confidence * jnp.log(confidence) + (vocab_size - 1) * low_confidence * jnp.log(low_confidence + 1e-20)
         )
 
-        soft_labels = onehot(labels[0], vocab_size, on_value=confidence, off_value=low_confidence)
+        soft_labels = onehot(labels, vocab_size, on_value=confidence, off_value=low_confidence)
 
         loss = optax.softmax_cross_entropy(logits, soft_labels)
         loss = loss - normalizing_constant

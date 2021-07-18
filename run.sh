@@ -17,13 +17,13 @@ python3 main.py \
     --seed 42 \
     --logging_steps 300 \
     --eval_steps 600 \
-    --save_steps 1200 \
+    --save_steps 2000 \
     --data_dir /home/user/data/CC12M/images \
     --train_file /home/chhablani_gunjan/spanish-image-captioning/data/train_file_es.tsv \
     --validation_file /home/chhablani_gunjan/spanish-image-captioning/data/val_file_es.tsv \
     --save_total_limit 6 \
     --push_to_hub \
-    --num_train_epochs 5 \
+    --num_train_epochs 10 \
     --push_to_hub_organization flax-community \
     --push_to_hub_token $token \
     --per_device_train_batch_size 128 \
